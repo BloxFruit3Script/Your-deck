@@ -8,9 +8,11 @@ import re
 import random
 
 app = Flask(__name__)
-key_regex = r'let content = \("([^"]+)"\);'
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1)
 port = int(os.getenv('PORT', 8080))
+
+key_regex_fluxus = r'let content = "([^"]+)";'
+key_regex_delta = r'let content = "([^"]+)";'
 
 logger = logging.getLogger('api_usage')
 logger.setLevel(logging.INFO)
@@ -50,17 +52,15 @@ def index():
 
 def fetch(url, headers):
     try:
-        
         fake_time = random.uniform(0.1, 0.2)
         time.sleep(fake_time)
-        
         response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
         return response.text, fake_time
     except requests.exceptions.RequestException as e:
         raise Exception(f"Failed to fetch URL: {url}. Error: {e}")
 
-def bypass_link(url):
+def bypass_fluxus_link(url):
     try:
         hwid = url.split("HWID=")[-1]
         if not hwid:
@@ -86,8 +86,8 @@ def bypass_link(url):
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
             }
             response_text, fake_time = fetch(url, headers)
-            if endpoint == endpoints[-1]:  # Chỉ kiểm tra endpoint cuối cùng
-                match = re.search(key_regex, response_text)
+            if endpoint == endpoints[-1]:  # Only check the last endpoint
+                match = re.search(key_regex_fluxus, response_text)
                 if match:
                     end_time = time.time()
                     time_taken = end_time - start_time
@@ -98,7 +98,7 @@ def bypass_link(url):
         raise Exception(f"Failed to bypass link. Error: {e}")
 
 @app.route("/api/fluxus")
-def bypass():
+def bypass_fluxus():
     global request_count
     request_count = read_request_count() + 1
     write_request_count(request_count)
@@ -106,25 +106,70 @@ def bypass():
     url = request.args.get("url")
     if url and url.startswith("https://flux.li/android/external/start.php?HWID="):
         try:
-            headers = {
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.5',
-                'DNT': '1',
-                'Connection': 'close',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
-            }
-            content, fake_time = bypass_link(url)
-            return jsonify({"status": "true", "key": content, "time_taken": "0.1", "credit": "Triple"})
+            content, fake_time = bypass_fluxus_link(url)
+            return jsonify({"status": "true", "key": content, "time_taken": fake_time, "credit": "Triple"})
         except Exception as e:
             return jsonify({"error": str(e)}), 500
     else:
         return jsonify({"status": "error", "message": "Please Enter a Valid Fluxus Link!"})
 
+def bypass_delta_link(url):
+    try:
+        id = url.split("id=")[-1]
+        if not id:
+            raise Exception("Invalid id in URL")
+
+        start_time = time.time()
+
+        endpoints = [
+            {"url": f"https://gateway.platoboost.com/a/8?id={id}", "referer": "https://loot-link.com/"},
+            {"url": "https://gateway.platoboost.com/a/8?id={id}&tk={hash}", "referer": "https://gateway.platoboost.com/a/8?id={id}&tk={hash}"}
+        ]
+
+        for endpoint in endpoints:
+            url = endpoint["url"]
+            referer = endpoint["referer"]
+            headers = {
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'DNT': '1',
+                'Connection': 'close',
+                'Referer': referer,
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
+            }
+            response_text, fake_time = fetch(url, headers)
+            if endpoint == endpoints[-1]:  # Only check the last endpoint
+                match = re.search(key_regex_delta, response_text)
+                if match:
+                    end_time = time.time()
+                    time_taken = end_time - start_time
+                    return match.group(1), time_taken
+                else:
+                    raise Exception("Failed to find content key")
+    except Exception as e:
+        raise Exception(f"Failed to bypass link. Error: {e}")
+
+@app.route("/api/delta")
+def bypass_delta():
+    global request_count
+    request_count = read_request_count() + 1
+    write_request_count(request_count)
+    
+    url = request.args.get("url")
+    if url and url.startswith("https://gateway.platoboost.com/a/8?id="):
+        try:
+            content, fake_time = bypass_delta_link(url)
+            return jsonify({"status": "true", "key": content, "time_taken": fake_time, "credit": "Triple"})
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+    else:
+        return jsonify({"status": "error", "message": "Please Enter a Valid Delta Link!"})
+
 @app.route("/check")
 def check():
     request_count = read_request_count()
-    return jsonify({"status": "false", "request": request_count, "credit": "Triple"})
-    
+    return jsonify({"request": request_count, "credit": "Triple"})
+
 if __name__ == '__main__':
     app.run(
         host='0.0.0.0',
