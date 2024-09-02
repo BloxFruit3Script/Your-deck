@@ -12,7 +12,6 @@ key_regex = r'let content = \("([^"]+)"\);'
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1)
 port = int(os.getenv('PORT', 8080))
 
-# Cấu hình logging
 logger = logging.getLogger('api_usage')
 logger.setLevel(logging.INFO)
 
@@ -23,7 +22,6 @@ formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 
-# Path to the file that stores request count
 count_file_path = '/tmp/request_count.txt'
 
 def read_request_count():
@@ -52,11 +50,10 @@ def index():
 
 def fetch(url, headers):
     try:
-        # Giả lập thời gian phản hồi từ 0.1 đến 0.2 giây
+        
         fake_time = random.uniform(0.1, 0.2)
         time.sleep(fake_time)
-
-        # Thực hiện yêu cầu HTTP
+        
         response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
         return response.text, fake_time
@@ -132,5 +129,5 @@ if __name__ == '__main__':
     app.run(
         host='0.0.0.0',
         port=port,
-        debug=False  # Đảm bảo rằng debug=False trong môi trường sản xuất
+        debug=False 
     )
