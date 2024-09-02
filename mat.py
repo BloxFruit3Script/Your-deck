@@ -48,12 +48,12 @@ def get_key_from_url(url):
 
 @app.route('/api/relz', methods=['GET'])
 def bypass():
-    link = request.args.get('link')
-    if not link:
+    url = request.args.get('url')
+    if not url:
         return jsonify({'success': False, 'error': 'Missing link parameter'}), 400
 
     try:
-        key = get_key_from_url(link)
+        key = get_key_from_url(url)
         if key:
             return jsonify({'success': True, 'key': key})
         else:
