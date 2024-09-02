@@ -123,8 +123,8 @@ def bypass():
 @app.route("/check")
 def check():
     request_count = read_request_count()
-    return jsonify({"status": "false", request": request_count, "credit": "Triple"})
-
+    return jsonify({"status": "false", "request": request_count, "credit": "Triple"})
+    
 if __name__ == '__main__':
     app.run(
         host='0.0.0.0',
