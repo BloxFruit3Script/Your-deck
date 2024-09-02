@@ -46,7 +46,7 @@ def get_key_from_url(url):
 
     return first_key
 
-@app.route('/bypass', methods=['GET'])
+@app.route('/api/relz', methods=['GET'])
 def bypass():
     link = request.args.get('link')
     if not link:
