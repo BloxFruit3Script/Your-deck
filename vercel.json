@@ -10,16 +10,6 @@
       {
         "src": "/(.*)",
         "dest": "/main.py"
-      },
-        {
-        "src": "mat.py",
-        "use": "@vercel/python"
-      }
-    ],
-    "routes": [
-      {
-        "src": "/(.*)",
-        "dest": "/mat.py"
       }
     ]
 }
