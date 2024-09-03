@@ -6,49 +6,7 @@ import requests
 import time
 import re
 import random
-import base64
-import urllib.parse
-from http.server import BaseHTTPRequestHandler
 
-class handler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        # Parse the query parameters from the URL
-        query = urllib.parse.urlparse(self.path).query
-        params = urllib.parse.parse_qs(query)
-
-        # Extract the base64-encoded string from the 'r' parameter
-        if 'r' not in params:
-            self.send_response(400)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            self.wfile.write(b'{"error": "No string provided."}')
-            return
-        
-        encoded_str = params['r'][0]
-
-        try:
-            # Decode the URL-encoded string
-            encoded_str = urllib.parse.unquote(encoded_str)
-
-            # Add padding '=' if necessary
-            encoded_str += '=' * (-len(encoded_str) % 4)
-
-            # Decode the base64 string
-            decoded_bytes = base64.b64decode(encoded_str)
-            decoded_str = decoded_bytes.decode('utf-8')
-
-            # Send the response back to the client
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            self.wfile.write(f'{{"decodedUrl": "{decoded_str}"}}'.encode())
-
-        except Exception as e:
-            self.send_response(500)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            self.wfile.write(b'{"error": "Failed to bypass string."}')
-            
 app = Flask(__name__)
 key_regex = r'let content = \("([^"]+)"\);'
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1)
