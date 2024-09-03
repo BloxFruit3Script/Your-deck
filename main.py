@@ -100,34 +100,26 @@ def bypass_link(url):
     except Exception as e:
         raise Exception(f"Failed to bypass link. Error: {e}")
 
+@app.route("/check")
+def check():
+    request_count = read_request_count()
+    return jsonify({"request": request_count})
+
 @app.route("/api/fluxus")
 def bypass():
-    global request_count
     request_count = read_request_count() + 1
     write_request_count(request_count)
     
     url = request.args.get("url")
     if url and url.startswith("https://flux.li/android/external/start.php?HWID="):
         try:
-            headers = {
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.5',
-                'DNT': '1',
-                'Connection': 'close',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
-            }
-            content, fake_time = bypass_link(url)
-            return jsonify({"key": content, "time_taken": "0.1"})
+            content, time_taken = bypass_link(url)
+            return jsonify({"key": content, "time_taken": time_taken})
         except Exception as e:
             return jsonify({"error": str(e)}), 500
     else:
         return jsonify({"message": "Please Enter a Valid Fluxus Link!"})
-
-@app.route("/check")
-def check():
-    request_count = read_request_count()
-    return jsonify({"request": request_count"})
-
+        
 if __name__ == '__main__':
     app.run(
         host='0.0.0.0',
