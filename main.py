@@ -1,37 +1,136 @@
+import logging
+from flask import Flask, request, jsonify, render_template
+from werkzeug.middleware.proxy_fix import ProxyFix
+import os
 import requests
-from bs4 import BeautifulSoup
+import time
+import re
+import random
 
-def bypass_fluxus(start_url):
-    headers = {
-        "user-agent": "Mozilla/5.0 (Linux; Android 8.1.0; GO3C Build/OPM2.171019.012; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/88.0.4324.141 Mobile Safari/537.36",
-        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-        "accept-encoding": "gzip, deflate, br",
-        "accept-language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
-        "referer": "https://linkvertise.com/",
-        "sec-ch-ua": '"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"',
-        "sec-ch-ua-mobile": "?1",
-        "sec-ch-ua-platform": '"Android"',
-        "sec-fetch-dest": "document",
-        "sec-fetch-mode": "navigate",
-        "sec-fetch-site": "cross-site",
-        "sec-fetch-user": "?1",
-        "upgrade-insecure-requests": "1",
-    }
+app = Flask(__name__)
+key_regex = r'let content = "([^"]+)";'
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1)
+port = int(os.getenv('PORT', 8080))
 
-    fluxus_urls = {
-        "check": "https://flux.li/android/external/check1.php?hash={hash}",
-        "main": "https://flux.li/android/external/main.php?hash={hash}",
-    }
+# Cáº¥u hÃ¬nh logging
+logger = logging.getLogger('api_usage')
+logger.setLevel(logging.INFO)
 
+log_file_path = '/tmp/api_usage.log'
+file_handler = logging.FileHandler(log_file_path)
+file_handler.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
+
+# Path to the file that stores request count
+count_file_path = '/tmp/request_count.txt'
+
+def read_request_count():
+    """Read the current request count from file."""
+    if os.path.exists(count_file_path):
+        with open(count_file_path, 'r') as f:
+            return int(f.read().strip())
+    return 0
+
+def write_request_count(count):
+    """Write the request count to file."""
+    with open(count_file_path, 'w') as f:
+        f.write(str(count))
+
+def get_client_ip():
+    """HÃ m Ä‘á»ƒ láº¥y Ä‘á»‹a chá»‰ IP cá»§a client, xem xÃ©t cáº£ trÆ°á»ng há»£p Ä‘áº±ng sau proxy."""
+    if request.headers.getlist("X-Forwarded-For"):
+        ip = request.headers.getlist("X-Forwarded-For")[0].split(',')[0].strip()
+    else:
+        ip = request.remote_addr
+    return ip
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+def fetch(url, headers):
     try:
-        requests.get(start_url, headers=headers)
-        
-        check_response = requests.get(fluxus_urls['check'], headers=headers)
-        main_response = requests.get(fluxus_urls['main'], headers=headers)
-        
-        soup = BeautifulSoup(main_response.text, 'html.parser')
-        random_stuff = soup.find('code', style="background:#29464A;color:#F0F0F0; font-size: 13px;font-family: 'Open Sans';").get_text().strip()
+        # Giáº£ láº­p thá»i gian pháº£n há»“i tá»« 0.1 Ä‘áº¿n 0.2 giÃ¢y
+        fake_time = random.uniform(0.1, 0.2)
+        time.sleep(fake_time)
 
-        return {"success": True, "key": random_stuff}
-    except Exception as error:
-        return {"success": False, "message": "Internal Server Error"}
+        # Thá»±c hiá»‡n yÃªu cáº§u HTTP
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        return response.text, fake_time
+    except requests.exceptions.RequestException as e:
+        raise Exception(f"Failed to fetch URL: {url}. Error: {e}")
+
+def bypass_link(url):
+    try:
+        hwid = url.split("HWID=")[-1]
+        if not hwid:
+            raise Exception("Invalid HWID in URL")
+
+        start_time = time.time()
+
+        endpoints = [
+            {"url": f"https://flux.li/android/external/start.php?HWID={hwid}", "referer": ""},
+            {"url": "https://flux.li/android/external/check1.php?hash={hash}", "referer": "https://linkvertise.com"},
+            {"url": "https://flux.li/android/external/main.php?hash={hash}", "referer": "https://linkvertise.com"}
+        ]
+
+        for endpoint in endpoints:
+            url = endpoint["url"]
+            referer = endpoint["referer"]
+            headers = {
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'DNT': '1',
+                'Connection': 'close',
+                'Referer': referer,
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
+            }
+            response_text, fake_time = fetch(url, headers)
+            if endpoint == endpoints[-1]:  # Chá»‰ kiá»ƒm tra endpoint cuá»‘i cÃ¹ng
+                match = re.search(key_regex, response_text)
+                if match:
+                    end_time = time.time()
+                    time_taken = end_time - start_time
+                    return match.group(1), time_taken
+                else:
+                    raise Exception("Failed to find content key")
+    except Exception as e:
+        raise Exception(f"Failed to bypass link. Error: {e}")
+
+@app.route("/api/fluxus")
+def bypass():
+    global request_count
+    request_count = read_request_count() + 1
+    write_request_count(request_count)
+    
+    url = request.args.get("url")
+    if url and url.startswith("https://flux.li/android/external/start.php?HWID="):
+        try:
+            headers = {
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'DNT': '1',
+                'Connection': 'close',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
+            }
+            content, fake_time = bypass_link(url)
+            return jsonify({"key": content, "time_taken": "0.1", "credit": "Triple"})
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+    else:
+        return jsonify({"message": "Please Enter a Valid Fluxus Link!"})
+
+@app.route("/check")
+def check():
+    request_count = read_request_count()
+    return jsonify({"request": request_count, "credit": "Triple"})
+
+if __name__ == '__main__':
+    app.run(
+        host='0.0.0.0',
+        port=port,
+        debug=False  # Äáº£m báº£o ráº±ng debug=False trong mÃ´i trÆ°á»ng sáº£n xuáº¥t
+)
