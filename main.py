@@ -106,7 +106,7 @@ def check():
     request_count = read_request_count()
     return jsonify({"request": request_count})
 
-@app.route("/api/fluxus")
+@@app.route("/api/fluxus")
 def bypass():
     request_count = read_request_count() + 1
     write_request_count(request_count)
@@ -117,9 +117,10 @@ def bypass():
             content, time_taken = bypass_link(url)
             return jsonify({"key": content, "time_taken": time_taken})
         except Exception as e:
-            return jsonify({"error": str(e)}), 500
+            logger.error(f"Error bypassing link: {e}")
+            return jsonify({"error": "Failed to process the request. Please try again later."}), 500
     else:
-        return jsonify({"message": "Please Enter a Valid Fluxus Link!"}), 400
+        return jsonify({"message": "Invalid or missing 'url' parameter!"}), 400
         
 if __name__ == '__main__':
     app.run(
@@ -127,4 +128,3 @@ if __name__ == '__main__':
         port=port,
         debug=False  # Ensure that debug=False in the production environment
     )
-
