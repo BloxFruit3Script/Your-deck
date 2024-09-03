@@ -70,7 +70,7 @@ def bypass():
     if url.startswith("https://flux.li/android/external/start.php?HWID="):
         try:
             content, time_taken = bypass_link(url)
-            return jsonify({"key": content, "time_taken": time_taken, "credit": "FeliciaXxx"})
+            return jsonify({"key": content, "time_taken": time_taken, "credit": "Trile)
         except Exception as e:
             return jsonify({"error": str(e)}), 500
     else:
