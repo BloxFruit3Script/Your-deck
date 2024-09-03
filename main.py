@@ -12,7 +12,7 @@ key_regex = r'let content = "([^"]+)";'
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1)
 port = int(os.getenv('PORT', 8080))
 
-# Cấu hình logging
+# Configure logging
 logger = logging.getLogger('api_usage')
 logger.setLevel(logging.INFO)
 
@@ -39,7 +39,7 @@ def write_request_count(count):
         f.write(str(count))
 
 def get_client_ip():
-    """Hàm để lấy địa chỉ IP của client, xem xét cả trường hợp đứng sau proxy."""
+    """Function to get the client IP address, considering the case behind a proxy."""
     if request.headers.getlist("X-Forwarded-For"):
         ip = request.headers.getlist("X-Forwarded-For")[0].split(',')[0].strip()
     else:
@@ -52,11 +52,11 @@ def index():
 
 def fetch(url, headers):
     try:
-        # Giả lập thời gian phản hồi từ 0.1 đến 0.2 giây
+        # Simulate response time from 0.1 to 0.2 seconds
         fake_time = random.uniform(0.1, 0.2)
         time.sleep(fake_time)
 
-        # Thực hiện yêu cầu HTTP
+        # Perform HTTP request
         response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
         return response.text, fake_time
@@ -89,7 +89,7 @@ def bypass_link(url):
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
             }
             response_text, fake_time = fetch(url, headers)
-            if endpoint == endpoints[-1]:  # Chỉ kiểm tra endpoint cuối cùng
+            if endpoint == endpoints[-1]:  # Only check the last endpoint
                 match = re.search(key_regex, response_text)
                 if match:
                     end_time = time.time()
@@ -102,20 +102,12 @@ def bypass_link(url):
 
 @app.route("/api/fluxus")
 def bypass():
-    global request_count
     request_count = read_request_count() + 1
     write_request_count(request_count)
     
     url = request.args.get("url")
     if url and url.startswith("https://flux.li/android/external/start.php?HWID="):
         try:
-            headers = {
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.5',
-                'DNT': '1',
-                'Connection': 'close',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
-            }
             content, time_taken = bypass_link(url)
             return jsonify({"key": content, "time_taken": time_taken})
         except Exception as e:
@@ -132,5 +124,5 @@ if __name__ == '__main__':
     app.run(
         host='0.0.0.0',
         port=port,
-        debug=False  # Đảm bảo rằng debug=False trong môi trường sản xuất
-)
+        debug=False  # Ensure debug=False in a production environment
+    )
