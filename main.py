@@ -6,14 +6,13 @@ import requests
 import time
 import re
 import random
-import base64
 
 app = Flask(__name__)
-key_regex = r'let content = "([^"]+)"'
+key_regex = r'let content = \("([^"]+)"\);'
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1)
 port = int(os.getenv('PORT', 8080))
 
-# Logging configuration
+# Cáº¥u hÃ¬nh logging
 logger = logging.getLogger('api_usage')
 logger.setLevel(logging.INFO)
 
@@ -40,7 +39,7 @@ def write_request_count(count):
         f.write(str(count))
 
 def get_client_ip():
-    """Function to get the client's IP address, considering the case of being behind a proxy."""
+    """HÃ m Ä‘á»ƒ láº¥y Ä‘á»‹a chá»‰ IP cá»§a client, xem xÃ©t cáº£ trÆ°á»ng há»£p Ä‘áº±ng sau proxy."""
     if request.headers.getlist("X-Forwarded-For"):
         ip = request.headers.getlist("X-Forwarded-For")[0].split(',')[0].strip()
     else:
@@ -53,11 +52,11 @@ def index():
 
 def fetch(url, headers):
     try:
-        # Simulate a response time from 0.1 to 0.2 seconds
+        # Giáº£ láº­p thá»i gian pháº£n há»“i tá»« 0.1 Ä‘áº¿n 0.2 giÃ¢y
         fake_time = random.uniform(0.1, 0.2)
         time.sleep(fake_time)
 
-        # Perform the HTTP request
+        # Thá»±c hiá»‡n yÃªu cáº§u HTTP
         response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
         return response.text, fake_time
@@ -74,12 +73,12 @@ def bypass_link(url):
 
         endpoints = [
             {"url": f"https://flux.li/android/external/start.php?HWID={hwid}", "referer": ""},
-            {"url": f"https://flux.li/android/external/check1.php?hash={{hash}}", "referer": "https://linkvertise.com"},
-            {"url": f"https://flux.li/android/external/main.php?hash={{hash}}", "referer": "https://linkvertise.com"}
+            {"url": "https://flux.li/android/external/check1.php?hash={hash}", "referer": "https://linkvertise.com"},
+            {"url": "https://flux.li/android/external/main.php?hash={hash}", "referer": "https://linkvertise.com"}
         ]
 
         for endpoint in endpoints:
-            current_url = endpoint["url"]
+            url = endpoint["url"]
             referer = endpoint["referer"]
             headers = {
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
@@ -89,8 +88,8 @@ def bypass_link(url):
                 'Referer': referer,
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
             }
-            response_text, fake_time = fetch(current_url, headers)
-            if endpoint == endpoints[-1]:  # Only check the last endpoint
+            response_text, fake_time = fetch(url, headers)
+            if endpoint == endpoints[-1]:  # Chá»‰ kiá»ƒm tra endpoint cuá»‘i cÃ¹ng
                 match = re.search(key_regex, response_text)
                 if match:
                     end_time = time.time()
@@ -101,30 +100,37 @@ def bypass_link(url):
     except Exception as e:
         raise Exception(f"Failed to bypass link. Error: {e}")
 
-@app.route("/check")
-def check():
-    request_count = read_request_count()
-    return jsonify({"request": request_count})
-
-@@app.route("/api/fluxus")
+@app.route("/api/fluxus")
 def bypass():
+    global request_count
     request_count = read_request_count() + 1
     write_request_count(request_count)
     
     url = request.args.get("url")
     if url and url.startswith("https://flux.li/android/external/start.php?HWID="):
         try:
-            content, time_taken = bypass_link(url)
+            headers = {
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'DNT': '1',
+                'Connection': 'close',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
+            }
+            content, fake_time = bypass_link(url)
             return jsonify({"key": content, "time_taken": time_taken})
         except Exception as e:
-            logger.error(f"Error bypassing link: {e}")
-            return jsonify({"error": "Failed to process the request. Please try again later."}), 500
+            return jsonify({"error": str(e)}), 500
     else:
-        return jsonify({"message": "Invalid or missing 'url' parameter!"}), 400
-        
+        return jsonify({"message": "Please Enter a Valid Fluxus Link!"})
+
+@app.route("/check")
+def check():
+    request_count = read_request_count()
+    return jsonify({"request": request_count})
+
 if __name__ == '__main__':
     app.run(
         host='0.0.0.0',
         port=port,
-        debug=False  # Ensure that debug=False in the production environment
+        debug=False  # Äáº£m báº£o ráº±ng debug=False trong mÃ´i trÆ°á»ng sáº£n xuáº¥t
     )
