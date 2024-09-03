@@ -6,6 +6,7 @@ import requests
 import time
 import re
 import random
+import base64
 
 app = Flask(__name__)
 key_regex = r'let content = "([^"]+)"'
@@ -120,20 +121,6 @@ def bypass():
     else:
         return jsonify({"message": "Please Enter a Valid Fluxus Link!"}), 400
         
-if __name__ == '__main__':
-    app.run(
-        host='0.0.0.0',
-        port=port,
-        debug=False  # Ensure that debug=False in the production environment
-    )
-
-from flask import Flask, request, jsonify
-import re
-import base64
-import requests
-
-app = Flask(__name__)
-
 @app.route('/api/boost.ink', methods=['GET'])
 def extract():
     # Get the URL from query parameters
@@ -167,4 +154,9 @@ def extract():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(
+        host='0.0.0.0',
+        port=port,
+        debug=False  # Ensure that debug=False in the production environment
+    )
+
