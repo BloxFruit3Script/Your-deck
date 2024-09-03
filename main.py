@@ -8,11 +8,11 @@ import re
 import random
 
 app = Flask(__name__)
-key_regex = r'let content = \("([^"]+)"\);'
+key_regex = r'let content = "([^"]+)";'
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1)
 port = int(os.getenv('PORT', 8080))
 
-# Cáº¥u hÃ¬nh logging
+# Cấu hình logging
 logger = logging.getLogger('api_usage')
 logger.setLevel(logging.INFO)
 
@@ -39,7 +39,7 @@ def write_request_count(count):
         f.write(str(count))
 
 def get_client_ip():
-    """HÃ m Ä‘á»ƒ láº¥y Ä‘á»‹a chá»‰ IP cá»§a client, xem xÃ©t cáº£ trÆ°á»ng há»£p Ä‘áº±ng sau proxy."""
+    """Hàm để lấy địa chỉ IP của client, xem xét cả trường hợp đứng sau proxy."""
     if request.headers.getlist("X-Forwarded-For"):
         ip = request.headers.getlist("X-Forwarded-For")[0].split(',')[0].strip()
     else:
@@ -52,11 +52,11 @@ def index():
 
 def fetch(url, headers):
     try:
-        # Giáº£ láº­p thá»i gian pháº£n há»“i tá»« 0.1 Ä‘áº¿n 0.2 giÃ¢y
+        # Giả lập thời gian phản hồi từ 0.1 đến 0.2 giây
         fake_time = random.uniform(0.1, 0.2)
         time.sleep(fake_time)
 
-        # Thá»±c hiá»‡n yÃªu cáº§u HTTP
+        # Thực hiện yêu cầu HTTP
         response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
         return response.text, fake_time
@@ -89,7 +89,7 @@ def bypass_link(url):
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
             }
             response_text, fake_time = fetch(url, headers)
-            if endpoint == endpoints[-1]:  # Chá»‰ kiá»ƒm tra endpoint cuá»‘i cÃ¹ng
+            if endpoint == endpoints[-1]:  # Chỉ kiểm tra endpoint cuối cùng
                 match = re.search(key_regex, response_text)
                 if match:
                     end_time = time.time()
@@ -116,7 +116,7 @@ def bypass():
                 'Connection': 'close',
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
             }
-            content, fake_time = bypass_link(url)
+            content, time_taken = bypass_link(url)
             return jsonify({"key": content, "time_taken": time_taken})
         except Exception as e:
             return jsonify({"error": str(e)}), 500
@@ -132,5 +132,5 @@ if __name__ == '__main__':
     app.run(
         host='0.0.0.0',
         port=port,
-        debug=False  # Äáº£m báº£o ráº±ng debug=False trong mÃ´i trÆ°á»ng sáº£n xuáº¥t
-    )
+        debug=False  # Đảm bảo rằng debug=False trong môi trường sản xuất
+)
