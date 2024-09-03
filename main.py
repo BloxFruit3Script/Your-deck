@@ -8,7 +8,7 @@ import re
 import random
 
 app = Flask(__name__)
-key_regex = r'let content = "([^"]+)";'
+key_regex = r'let content = \("([^"]+)"\);'
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1)
 port = int(os.getenv('PORT', 8080))
 
@@ -117,7 +117,7 @@ def bypass():
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
             }
             content, fake_time = bypass_link(url)
-            return jsonify({"key": content, "time_taken": "0.1", "credit": "Triple"})
+            return jsonify({"key": content, "time_taken": "0.1"})
         except Exception as e:
             return jsonify({"error": str(e)}), 500
     else:
@@ -126,11 +126,11 @@ def bypass():
 @app.route("/check")
 def check():
     request_count = read_request_count()
-    return jsonify({"request": request_count, "credit": "Triple"})
+    return jsonify({"request": request_count"})
 
 if __name__ == '__main__':
     app.run(
         host='0.0.0.0',
         port=port,
         debug=False  # Äáº£m báº£o ráº±ng debug=False trong mÃ´i trÆ°á»ng sáº£n xuáº¥t
-)
+    )
