@@ -1,128 +1,57 @@
-import logging
-from flask import Flask, request, jsonify, render_template
-from werkzeug.middleware.proxy_fix import ProxyFix
-import os
-import requests
+from flask import Flask, request, jsonify, redirect
 import time
-import re
-import random
+import requests
+import base64
 
 app = Flask(__name__)
-key_regex = r'let content = "([^"]+)";'
-app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1)
-port = int(os.getenv('PORT', 8080))
 
-# Configure logging
-logger = logging.getLogger('api_usage')
-logger.setLevel(logging.INFO)
+def sleep(seconds):
+    time.sleep(seconds)
 
-log_file_path = '/tmp/api_usage.log'
-file_handler = logging.FileHandler(log_file_path)
-file_handler.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-file_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
+@app.route('/delta', methods=['GET'])
+def delta():
+    e = request.args.get("id")
+    response = requests.get(f"https://api-gateway.platoboost.com/v1/authenticators/8/{e}")
+    t = response.json()
 
-# Path to the file that stores request count
-count_file_path = '/tmp/request_count.txt'
+    if t.get("key"):
+        return jsonify({"status": "Key found", "key": t["key"]})
 
-def read_request_count():
-    """Read the current request count from file."""
-    if os.path.exists(count_file_path):
-        with open(count_file_path, 'r') as f:
-            return int(f.read().strip())
-    return 0
-
-def write_request_count(count):
-    """Write the request count to file."""
-    with open(count_file_path, 'w') as f:
-        f.write(str(count))
-
-def get_client_ip():
-    """Function to get the client IP address, considering the case behind a proxy."""
-    if request.headers.getlist("X-Forwarded-For"):
-        ip = request.headers.getlist("X-Forwarded-For")[0].split(',')[0].strip()
+    a = request.args.get("tk")
+    if a:
+        sleep(5)
+        session_response = requests.put(
+            f"https://api-gateway.platoboost.com/v1/sessions/auth/8/{e}/{a}"
+        ).json()
+        if 'redirect' in session_response:
+            return redirect(session_response['redirect'])
+        else:
+            return jsonify({"error": session_response})
     else:
-        ip = request.remote_addr
-    return ip
+        captcha = t.get("captcha", "")
+        session_response = requests.post(
+            f"https://api-gateway.platoboost.com/v1/sessions/auth/8/{e}",
+            json={
+                "captcha": captcha or await get_turnstile_response(),
+                "type": "Turnstile" if captcha else ""
+            },
+            headers={"Content-Type": "application/json"}
+        ).json()
+
+        sleep(1)
+        s = requests.utils.unquote(session_response['redirect'])
+        i = s.split('r=')[1]
+        decoded_redirect = base64.b64decode(i).decode('utf-8')
+
+        return redirect(decoded_redirect)
+
+def get_turnstile_response():
+    # Placeholder for Turnstile response. Could integrate hCaptcha verification here.
+    return ""
 
 @app.route('/')
 def index():
-    return render_template('index.html')
-
-def fetch(url, headers):
-    try:
-        # Simulate response time from 0.1 to 0.2 seconds
-        fake_time = random.uniform(0.1, 0.2)
-        time.sleep(fake_time)
-
-        # Perform HTTP request
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-        return response.text, fake_time
-    except requests.exceptions.RequestException as e:
-        raise Exception(f"Failed to fetch URL: {url}. Error: {e}")
-
-def bypass_link(url):
-    try:
-        hwid = url.split("HWID=")[-1]
-        if not hwid:
-            raise Exception("Invalid HWID in URL")
-
-        start_time = time.time()
-
-        endpoints = [
-            {"url": f"https://flux.li/android/external/start.php?HWID={hwid}", "referer": ""},
-            {"url": "https://flux.li/android/external/check1.php?hash={hash}", "referer": "https://linkvertise.com"},
-            {"url": "https://flux.li/android/external/main.php?hash={hash}", "referer": "https://linkvertise.com"}
-        ]
-
-        for endpoint in endpoints:
-            url = endpoint["url"]
-            referer = endpoint["referer"]
-            headers = {
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.5',
-                'DNT': '1',
-                'Connection': 'close',
-                'Referer': referer,
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
-            }
-            response_text, fake_time = fetch(url, headers)
-            if endpoint == endpoints[-1]:  # Only check the last endpoint
-                match = re.search(key_regex, response_text)
-                if match:
-                    end_time = time.time()
-                    time_taken = end_time - start_time
-                    return match.group(1), time_taken
-                else:
-                    raise Exception("Failed to find content key")
-    except Exception as e:
-        raise Exception(f"Failed to bypass link. Error: {e}")
-
-@app.route("/api/fluxus")
-def bypass():
-    request_count = read_request_count() + 1
-    write_request_count(request_count)
-    
-    url = request.args.get("url")
-    if url and url.startswith("https://flux.li/android/external/start.php?HWID="):
-        try:
-            content, time_taken = bypass_link(url)
-            return jsonify({"key": content, "time_taken": time_taken})
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-    else:
-        return jsonify({"message": "Please Enter a Valid Fluxus Link!"})
-
-@app.route("/check")
-def check():
-    request_count = read_request_count()
-    return jsonify({"request": request_count})
+    return "Delta Bypass API is running."
 
 if __name__ == '__main__':
-    app.run(
-        host='0.0.0.0',
-        port=port,
-        debug=False  # Ensure debug=False in a production environment
-    )
+    app.run(debug=True)
