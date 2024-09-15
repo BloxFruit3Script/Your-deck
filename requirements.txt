@@ -1,3 +1,5 @@
 Flask
 requests
 werkzeug
+bs4
+BeautifulSoup
