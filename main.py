@@ -8,7 +8,7 @@ from flask import Flask, request, jsonify
 
 i = 0
 platoboost = "https://gateway.platoboost.com/a/8?id="
-discord_webhook_url = "" # enter your webhook if security check detected
+discord_webhook_url = "https://discord.com/api/webhooks/1286656684252729437/IG7ZxqaKgeh9QR_n6UuZ8m-Fac90jRbZ2I_qQgzblplVMHOD2NWlHX7kh3s30POvms9g" # enter your webhook if security check detected
 
 app = Flask(__name__)
 
