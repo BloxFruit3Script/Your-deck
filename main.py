@@ -1,64 +1,44 @@
+```py
 from flask import Flask, request, jsonify
-import asyncio
-from aiohttp import ClientSession
-import re
+import requests
 from bs4 import BeautifulSoup
 
 app = Flask(__name__)
 
-relzheaders = {
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-    'Accept-Language': 'en-US,en;q=0.5',
-    'DNT': '1',
-    'Connection': 'close',
-    'Referer': 'https://linkvertise.com'
-}
-
-relz_key_pattern = r'const\s+keyValue\s*=\s*"([^"]+)"'
-
-async def get_content(url, session):
-    async with session.get(url, headers=relzheaders, allow_redirects=True) as response:
-        html_text = await response.text()
-        return html_text
-
-async def fetch_key_value(link):
-    urls = [
-        link,
-        'https://getkey.relzscript.xyz/check1.php',
-        'https://getkey.relzscript.xyz/check2.php',
-        'https://getkey.relzscript.xyz/check3.php',
-        'https://getkey.relzscript.xyz/generate.php'
-    ]
-
-    async with ClientSession() as session:
-        for url in urls:
-            html_text = await get_content(url, session)
-            soup = BeautifulSoup(html_text, 'html.parser')
-            script_tags = soup.find_all('script')
-            for script_tag in script_tags:
-                script_content = script_tag.string
-                if script_content:
-                    key_match = re.search(relz_key_pattern, script_content)
-                    if key_match:
-                        key_value = key_match.group(1)
-                        return key_value
-
-    return None
-
-@app.route('/api/relz')
-def get_key_value():
-    link = request.args.get('link')
-    if not link:
-        return jsonify({'error': 'No link provided'})
-
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    key_value = loop.run_until_complete(fetch_key_value(link))
-
-    if key_value:
-        return jsonify({'status': key_value})
+def get_paste_drop_content(url):
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Referer': 'https://paste-drop.com/'
+    }
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        return response.text
     else:
-        return jsonify({'error': 'Key value not found'})
+        return None
+
+def parse_html(html_content):
+    soup = BeautifulSoup(html_content, 'html.parser')
+    content = soup.find('span', id='content')
+    if content:
+        return content.get_text().replace('\\', '')
+    else:
+        return None
+
+@app.route('/api/paste', methods=['GET'])
+def get_paste_drop_content_endpoint():
+    url = request.args.get('url')
+    if not url:
+        return jsonify({"status": "fail", "message": "URL parameter is missing"}), 400
+
+    html_content = get_paste_drop_content(url)
+    if html_content:
+        parsed_content = parse_html(html_content)
+        if parsed_content:
+            return jsonify({"status": "success", "result": parsed_content}), 200
+        else:
+            return jsonify({"status": "fail", "message": "An Error Occurred"}), 500
+    else:
+        return jsonify({"status": "fail", "message": "Unknown Error Happened"}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
+    app.run(host='0.0.0.0', port=8080)```
