@@ -1,5 +1,2 @@
 Flask
-re
-asyncio
-ClientSession
-BeautifulSoup
+requests
