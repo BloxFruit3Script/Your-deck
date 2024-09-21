@@ -1,4 +1,3 @@
-```py
 from flask import Flask, request, jsonify
 import requests
 from bs4 import BeautifulSoup
@@ -41,4 +40,4 @@ def get_paste_drop_content_endpoint():
         return jsonify({"status": "fail", "message": "Unknown Error Happened"}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)```
+    app.run(host='0.0.0.0', port=8080)
